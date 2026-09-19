@@ -1,6 +1,6 @@
 # 문서 안내
 
-이 폴더는 제품 기획·발표·사전 검증 자료를 보존합니다. 작성 당시의 “오늘 구현할 것”, SciPy Demo B, snapshot 계획 등이 포함되어 있으며 모두 현재 구현을 뜻하지는 않습니다. **현재 실행 방법과 구현 상태는 루트 [README](../README.md), 실험별 검증 범위는 [VERIFICATION](../VERIFICATION.md)를 우선합니다.**
+이 폴더는 제품 기획·발표·사전 검증 자료를 보존합니다. 작성 당시의 “오늘 구현할 것”, SciPy Demo B, snapshot 계획 등이 포함되어 있으며 모두 현재 구현을 뜻하지는 않습니다. **제품 소개는 루트 [README](../README.md), 현재 실행 방법과 구현 상태는 [실행·개발 가이드](DEVELOPMENT.md), 실험별 검증 범위는 [VERIFICATION](../VERIFICATION.md)를 우선합니다.**
 
 1. 처음 이해하기: [OnePager](EnvBisect_OnePager.md)
 2. 발표 흐름: [Pitch Narrative](EnvBisect_Pitch_Narrative.md), [발표자료](발표자료.md)
