@@ -1,0 +1,13 @@
+{
+  "oracle": "Creating a typed-array view of the buffer completes without an exception. This does not prove application-level correctness.",
+  "good_world": {"world_id": "baseline-good", "factors": {"node": "26.7.0", "size": 8, "allocation": "pooled", "length": "implicit", "width": 32}, "status": "PASS"},
+  "bad_world": {"world_id": "baseline-bad", "factors": {"node": "26.8.1", "size": 8, "allocation": "pooled", "length": "implicit", "width": 32}, "status": "FAIL"},
+  "observed_differences": [{"field": "node", "good": "26.7.0", "bad": "26.8.1"}],
+  "factors": [
+    {"id": "node", "kind": "categorical", "source": "observed", "domain": ["26.7.0", "26.8.1"], "manipulable": true},
+    {"id": "allocation", "kind": "categorical", "source": "available_intervention", "domain": ["pooled", "slow"], "manipulable": true},
+    {"id": "length", "kind": "categorical", "source": "available_intervention", "domain": ["implicit", "explicit"], "manipulable": true},
+    {"id": "width", "kind": "categorical", "source": "available_intervention", "domain": [8, 16, 32], "manipulable": true},
+    {"id": "size", "kind": "integer", "source": "available_intervention", "domain": {"min": 1, "max": 100000}, "manipulable": true}
+  ]
+}

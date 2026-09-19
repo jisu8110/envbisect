@@ -1,330 +1,50 @@
-<!--
-Draft for the public GitHub repository.
-Before publishing, reconcile commands, screenshots, counts, and implementation status
-against the final repository and its latest live run.
--->
-
 # EnvBisect
 
 ### Find the condition that makes your software fail.
 
-**CI tells you that something failed.  
-AI can tell you what might be wrong.  
-EnvBisect runs the experiments that show under which conditions it actually fails.**
+**AI의 가설을 실행 가능한 실험으로 바꾸고, 검증된 실패 조건을 돌려주는 디버깅 데모.**
 
-Built for the Daytona HackSprint.
+런타임 업데이트 뒤 CI가 실패하면 “버전 문제 같다”는 설명만으로는 부족합니다. 이전 환경을 만들고, 조건을 바꾸고, 테스트를 다시 실행해야 합니다. EnvBisect는 이 반복을 하나의 evidence-driven experiment loop로 제공합니다.
 
-<!-- Replace with the final Experiment Workspace screenshot or short demo GIF. -->
+> The LLM chooses the experiment. Daytona creates the worlds. Execution decides what's true.
 
----
+## 현재 구현
 
-## The debugging gap
+- 준비된 Node.js 사례의 good/bad 조건을 실제 실행해 재현합니다.
+- LLM이 이전 world ID와 PASS/FAIL을 근거로 다음 비교를 선택합니다.
+- 엔진이 허용된 조건만 실행하고, 숫자 축 탐색과 인접 조건 반복 검증을 담당합니다.
+- Daytona에서 실험별 독립 sandbox를 생성·병렬 실행·삭제합니다.
+- 로컬 웹에서 실험 시작·안전 중단·기록 조회·증거 다운로드·실패 조건 재실행이 가능합니다.
+- CLI와 웹은 같은 엔진을 사용합니다. 계정 연결 UI나 채팅 UI는 없습니다.
 
-Imagine a dependency or runtime update breaks a CI job.
-
-You paste the logs into an AI coding agent and get a reasonable answer:
-
-> “This looks like a runtime regression.”
-
-Useful—but not enough to make an engineering decision.
-
-Does every workload fail on that runtime? Does the failure disappear with a different option? Is it triggered only by a particular input? Should you roll back the runtime, use a workaround, or wait for an upstream fix?
-
-**Someone still has to prove it.**
-
-```text
-recreate an environment
-        ↓
-change one condition
-        ↓
-run the test
-        ↓
-compare the result
-        ↓
-form the next hypothesis
-        ↓
-repeat
-```
-
-That last mile between an AI hypothesis and executable evidence is the problem EnvBisect is built to solve.
-
-**EnvBisect turns that sequence into a repeatable experimental debugging loop.**
-
-> The missing layer is not another explanation.  
-> It is the experiment loop between a hypothesis and evidence.
-
----
-
-## This is a real debugging problem
-
-**The expensive part is often not getting a hypothesis. It is proving which conditions actually matter.**
-
-Reproduction and execution context are not just conveniences.
-
-- In [Google's agentic bug-reproduction study](https://arxiv.org/html/2502.01821v2#S6.SS2), plausible fixes on a 23-bug reproduction-test subset increased from **13/23 to 17/23** when executable bug-reproduction tests were available.
-- In a [SaaS field study](https://www.sciencedirect.com/science/article/pii/S0164121226002943), broader monitoring, contextual evidence, and workflow improvements coincided with non-reproducible bugs falling from **33% to 0%** and mean closure time decreasing from **60 to 15 days**.
-
-These are external research results, not EnvBisect performance numbers. They point to the same idea:
-
-> **A plausible explanation helps.  
-> Reproducible execution evidence lets you act on it.**
-
-### Who is this for?
-
-EnvBisect starts with a narrow but common moment:
-
-**A test is reproducibly failing after an environment, dependency, runtime, configuration, or workload change—but the condition that actually triggers the failure is still unclear.**
-
-It is for the engineer who already knows *that* something broke and now needs evidence for *when* it breaks.
-
----
-
-## EnvBisect turns debugging into experiments
-
-Instead of asking an AI to keep explaining the failure, EnvBisect asks:
-
-### What should we execute next to reduce uncertainty?
-
-```mermaid
-flowchart TD
-    A[Known Good] --> C[AI Planner]
-    B[Known Bad] --> C
-    C -->|chooses the next experiment| D[Experiment Engine]
-    D --> E1[Daytona World 1]
-    D --> E2[Daytona World 2]
-    D --> E3[Daytona World 3]
-    E1 --> F[PASS / FAIL Evidence]
-    E2 --> F
-    E3 --> F
-    F -->|changes the next decision| C
-    F --> G[Verified Failure Condition]
-```
-
-**The LLM chooses the experiment.  
-Daytona creates the worlds.  
-Execution decides what's true.**
-
-The planner never writes arbitrary shell commands. It selects from a bounded set of allowed experimental factors. The deterministic engine validates that action, creates concrete world specifications, executes them, verifies the observations, and decides when the evidence is sufficient.
-
----
-
-## Why not just let an LLM run experiments?
-
-A coding agent can run experiments too. EnvBisect makes that investigation controlled, reproducible, and auditable: the model chooses within a bounded experiment contract, while execution—not model confidence—decides the result.
-
-```text
-Planner chooses → Engine validates → Daytona executes → Oracle decides
-```
-
-The advantage is not simply that an LLM can try things automatically. **EnvBisect turns adaptive reasoning into a controlled experimental process whose conclusions come from execution.**
-
----
-
-## Why Daytona?
-
-Every experiment needs a clean execution environment.
-
-EnvBisect uses Daytona to turn an experimental condition into a disposable, isolated world that can be created, executed, compared, and destroyed through an API.
-
-For every world, EnvBisect can:
-
-- pin the runtime and experimental conditions;
-- execute independent worlds in parallel;
-- capture stdout, exit status, runtime version, and observed factors;
-- compare results without leaking state between experiments; and
-- clean up the environment after collecting the observation.
-
-Daytona is not the hypothesis engine.
-
-**It is what makes hypotheses executable.**
-
----
-
-## Demo: evidence changes the next experiment
-
-The demo uses a compact reproduction of [Node.js issue #65601](https://github.com/nodejs/node/issues/65601).
-
-The initial evidence contains only a known-good and a known-bad runtime:
-
-| Initial world | Result |
-|---|---:|
-| Node 26.7.0, original case | **PASS** |
-| Node 26.8.1, original case | **FAIL** |
-
-EnvBisect then executes controlled counterfactual worlds while keeping the failing runtime fixed:
-
-| Counterfactual experiment | Result |
-|---|---:|
-| Explicit length | **PASS** |
-| Unpooled allocation | **PASS** |
-| Uint8 view | **PASS** |
-| Original Uint32 view | **FAIL** |
-
-The important part is not the table.
-
-## Evidence → next experiment
-
-**Those observations become the input to the next decision.**
-
-The planner selects `size` as the next experimental axis while the failing runtime and other conditions remain fixed. A deterministic search—not an LLM guess—generates new probes. Daytona executes each probe in a fresh world.
-
-The observed interval narrows until two adjacent conditions are verified:
-
-```text
-32,767 bytes                 32,768 bytes
-     FAIL          →              PASS
-```
-
-This is an **observed transition under the tested conditions**. It is not a claim about a universal threshold, a global minimum, or the complete implementation root cause.
-
----
-
-## What the developer gets
-
-EnvBisect produces an **Evidence Package**, not another explanation:
-
-- the exact failing environment;
-- the experiments that were executed;
-- the factors changed and held fixed in every world;
-- raw PASS/FAIL observations and world references;
-- the complete action history;
-- a reproducible failing command; and
-- a verified passing counterfactual.
-
-The package can be used to reproduce the failure, guide a fix, create regression coverage, or hand the investigation to another engineer or coding agent.
-
----
-
-## Experiment Workspace
-
-The product is organized around one investigation—not a generic dashboard and not a chat interface.
-
-```text
-INCIDENT
-   ↓
-VERIFIED BASELINE
-   ↓
-HYPOTHESIS
-   ↓
-DAYTONA EXECUTION
-   ↓
-EVIDENCE
-   ↓
-NEXT EXPERIMENT
-   ↓
-VERIFIED CONDITION
-   ↓
-EVIDENCE PACKAGE
-```
-
-Each world exposes its provenance: the world it was based on, the changed factor, fixed factors, Daytona lifecycle, observation, and cleanup status.
-
-<!-- Replace with final screenshots:
-1. Known good / known bad baseline
-2. Four Daytona world cards
-3. Evidence -> Next Experiment
-4. Boundary Explorer
-5. Evidence Package
--->
-
----
-
-## Architecture
+**현재 입력은 `bundle.json`의 준비된 Node 사례입니다. 임의 CI 링크 가져오기, SciPy Demo B, snapshot 가속, 자동 patch/PR 생성은 아직 구현하지 않았습니다.**
 
 ```mermaid
 flowchart LR
-    A[Run Bundle] --> B[Planner]
-    B --> C[Experiment Action]
-    C --> D[Contract Validation]
-    D --> E[Deterministic Engine]
-    E --> F[World Specs]
-    F --> G[Daytona Runner]
-    G --> H[Observations]
-    H --> I[Evidence Store]
-    I --> B
-    I --> J[Evidence Package]
+    A[Good / Bad bundle] --> B[LLM Planner]
+    B --> C[Contract validation]
+    C --> D[Deterministic engine]
+    D --> E[Fresh Daytona worlds]
+    E --> F[Validated execution evidence]
+    F --> B
+    F --> G[Verified condition / Inconclusive]
 ```
 
-### Responsibility boundaries
+CI도 dynamic matrix를 만들 수 있고 coding agent도 실험할 수 있습니다. 차이는 독점적인 기능이 아니라 **증거 기반 실험 선택·통제된 조건 변경·실행·재검증·중단 기준을 제품의 기본 흐름으로 묶는 것**입니다. Daytona는 이를 API로 연결하는 구현 부담을 낮추며, 다른 인프라로도 구축할 수 있습니다.
 
-| Component | Responsibility |
-|---|---|
-| **Planner** | Selects the next useful experimental action from bounded factors and cites prior evidence. |
-| **Contracts** | Reject invalid, unsupported, or ungrounded actions before execution. |
-| **Engine** | Compiles experiments, controls budgets, performs deterministic search, and verifies adjacent conditions. |
-| **Daytona runner** | Creates isolated worlds, executes the fixture, captures observations, and destroys worlds. |
-| **Oracle** | Converts the fixture's measured behavior into PASS, FAIL, or infrastructure error. |
-| **Evidence store** | Preserves the ordered history of actions, worlds, observations, and final status. |
+## Quick start — Windows CMD
 
-The planner chooses. The engine validates. Daytona executes. The oracle decides.
+Python 3.11 이상, Git, Daytona/OpenAI API 키가 필요합니다.
 
----
-
-## CI, a general agent, and EnvBisect
-
-CI and general-purpose LLM agents solve important but different parts of debugging. EnvBisect adds the experimental discipline between them.
-
-| | Traditional CI | General LLM agent | EnvBisect |
-|---|---|---|---|
-| **What runs next** | A predefined pipeline or matrix | A free-form tool call or suggestion | A bounded experiment selected from prior evidence |
-| **Environment** | A build job configured in advance | Whatever environment the agent currently has | Fresh, isolated Daytona worlds with explicit factors |
-| **Control** | Deterministic but not adaptive | Adaptive but potentially ad hoc | Adaptive planning behind a strict experiment contract |
-| **Numeric search** | Must be scripted beforehand | The model may guess values | The LLM selects the axis; a deterministic engine generates probes |
-| **Result handling** | Logs and job status | Tool output interpreted in conversation | Validated PASS/FAIL observations with provenance |
-| **Failure behavior** | Pipeline fails or stops | The model may keep trying or change approach | Invalid actions, infrastructure errors, and budget exhaustion become `INCONCLUSIVE` |
-| **Output** | CI logs | An explanation or patch attempt | An auditable Evidence Package |
-
-EnvBisect deliberately does **not** make the LLM the executor, search algorithm, and judge at the same time.
-
-- **The LLM is the planner.** It chooses one useful experimental action and must cite previous world IDs and PASS/FAIL evidence.
-- **The contract is the guardrail.** Unsupported factors, arbitrary commands, unmeasured seeds, and malformed actions are rejected before execution.
-- **The engine is deterministic.** It controls budgets, generates boundary probes, checks monotonicity within the observed bracket, and repeats adjacent endpoints.
-- **The oracle decides the outcome.** PASS, FAIL, and infrastructure errors come from measured execution—not model confidence.
-- **The evidence remains auditable.** Every action, world, observation, and cleanup result is preserved for review and reproduction.
-
----
-
-## Quick start
-
-### Requirements
-
-- Python 3.11+
-- A Daytona API key
-- An OpenAI API key
-
-### Install
-
-```bash
+```cmd
 git clone https://github.com/jisu8110/envbisect.git
 cd envbisect
-
 python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+copy .env.example .env
 ```
 
-Activate the environment:
-
-```bash
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-```
-
-Install dependencies and prepare configuration:
-
-```bash
-python -m pip install -r requirements.txt
-cp .env.example .env
-```
-
-On Windows PowerShell, use:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Configure `.env`:
+`.env`에 본인의 키를 입력합니다. 따옴표로 감싸도 됩니다. 기존 프로세스 환경변수 값이 있으면 그 값이 우선합니다.
 
 ```dotenv
 DAYTONA_API_KEY="your-daytona-api-key"
@@ -332,108 +52,92 @@ OPENAI_API_KEY="your-openai-api-key"
 OPENAI_MODEL="gpt-5.5"
 ```
 
-Never commit `.env` or paste API keys into issues, screenshots, or execution logs.
-
-### Run
-
-```bash
-# Check credentials and model access
-python demo.py --check
-
-# Run the evidence-driven investigation
-python demo.py
+```cmd
+.venv\Scripts\python web.py
 ```
 
-Useful alternatives:
+브라우저 주소창에 `http://127.0.0.1:8000`을 입력합니다. 터미널은 열어 두세요. **웹 서버를 켜는 것만으로 과금되는 실험이 시작되지는 않습니다.** 화면의 `실험 시작`을 누르면 선택한 모드로 실행됩니다.
 
-```bash
-# Verify only the known-good / known-bad baseline in Daytona
-python demo.py --smoke
+PowerShell의 설정 파일 복사는 `Copy-Item .env.example .env`입니다. macOS/Linux에서는 `python3 -m venv .venv`, `.venv/bin/python -m pip install -r requirements.txt`, `cp .env.example .env`, `.venv/bin/python web.py`를 사용합니다. 로컬 웹의 실사용 검증 환경은 Windows입니다.
 
-# Run automated tests without network calls or paid resources
-python -m unittest discover -s tests -v
+### 수정 반영과 안전 중단
 
-# Rehearsal path: real execution with deterministic rules, explicitly not AI
-python demo.py --planner rules
+| 상황 | 방법 |
+|---|---|
+| 진행 상황 | 약 1.2초마다 자동 갱신 |
+| HTML/CSS/JS 수정 | 브라우저 `Ctrl+F5` |
+| Python 또는 `.env` 수정 | 터미널 `Ctrl+C` → 정리·종료 대기 → 서버 재실행 |
+| 실험만 중단 | 화면의 `안전하게 중단` |
+| 서버까지 종료 | 터미널 `Ctrl+C`, 종료 안내까지 대기 |
+
+새로고침은 실험을 중복 시작하지 않습니다. 탭 닫기는 실험 중단이 아닙니다. 서버 하나는 한 번에 한 실험만 실행합니다. 별도 CLI/서버 프로세스까지 잠그지는 않으므로 동시에 여러 서버를 돌리지 마세요.
+
+다른 포트는 `web.py --port 8001`입니다. 서버는 loopback에만 바인딩하며 `.env`나 소스 디렉터리 전체를 웹에 노출하지 않습니다.
+
+## CLI와 실행 모드
+
+아래의 `python`은 가상환경의 실행 파일을 뜻합니다. Windows CMD에서는 `.venv\Scripts\python`으로 실행하세요.
+
+```sh
+python demo.py                         # Daytona + 실제 LLM
+python demo.py --smoke                 # baseline 2개, LLM 호출 없음
+python demo.py --planner rules         # Daytona + 규칙 기반 선택, AI 아님
+python demo.py --max-worlds 60 --seconds 600
+python -m unittest discover -s tests -v  # 유료 호출 없는 자동 테스트
 ```
 
-The default live run creates paid API requests and Daytona resources. Review the configured budgets before running it.
+기본 예산은 **80 worlds / 동시 4개 / planner 최대 6회 / 900초 soft budget**입니다. 실행 중인 HTTP 요청과 정리는 예산 종료 뒤에도 완료를 기다릴 수 있습니다. 자동 재시도나 규칙 모드로의 조용한 전환은 없습니다.
 
----
-
-## Evidence and run artifacts
-
-Every investigation writes an auditable run directory:
+로컬 실행을 쓰려면 버전별 바이너리를 직접 준비합니다.
 
 ```text
-runs/<run-id>/
-├── events.jsonl   # ordered planner, execution, observation, and lifecycle events
-└── summary.json   # final status, factors, observations, actions, counts, and boundary
+node-versions/
+├── 26.7.0/node.exe
+└── 26.8.1/node.exe
 ```
 
-The evidence log distinguishes:
+Windows 외에는 실행 파일 이름이 `node`입니다. `python web.py --node-dir "path/to/node-versions"`로 로컬 모드를 활성화할 수 있습니다. `Local + RULES`는 유료 API 호출이 없고, `Local + LLM`은 OpenAI 호출 비용만 발생합니다. **로컬 프로세스 실행은 보안 sandbox가 아닙니다.**
 
-- behavioral `FAIL` from infrastructure `ERROR`;
-- AI-selected actions from deterministic engine probes;
-- live, recorded, local, and rehearsal execution modes; and
-- measured observations from unimplemented or future actions.
+## 데모의 의미
 
----
+[Node.js #65601](https://github.com/nodejs/node/issues/65601)의 작은 재현 프로그램을 사용합니다. 기대 결과는 바이트 버퍼를 typed-array view로 만드는 작업이 예외 없이 완료되는 것입니다. 동일한 8-byte 입력에서 Node 26.7.0은 PASS, 26.8.1은 FAIL인지 새로 측정합니다.
 
-## Validation
+모델이 비교할 조건을 고르고, 관찰에 따라 다음 실험이 달라집니다. 탐색 엔진은 모델이 선택한 숫자 축의 FAIL/PASS 조건을 좁혀 각각 5번의 새 실행으로 검증합니다. 알려진 경계값을 planner 입력이나 탐색 정답으로 넣지 않습니다.
 
-<!--
-Final reconciliation gate: keep the complete-path language below only after a live
-artifact confirms that the OpenAI planner received Round 1 evidence, selected the
-size action, and that action produced the subsequent Daytona execution.
--->
+검증 기록에서 관찰된 `32,767 FAIL → 32,768 PASS`는 **Node 26.8.1 / pooled / implicit / Uint32** 조건의 국소 전환입니다. Node 26.8.x 전체, 전역 단조성, 완전한 root cause 또는 앱 전체 수정 완료에 대한 주장이 아닙니다. 모델의 선택이나 관찰에 따라 `INCONCLUSIVE`로 끝날 수 있습니다.
 
-The current demonstration validates the complete investigation path across isolated Daytona worlds:
+## 검증 현황
 
-- known-good and known-bad runtime reconstruction;
-- controlled categorical counterfactual experiments;
-- evidence-grounded selection of the next axis;
-- deterministic numeric boundary search;
-- repeated confirmation of adjacent FAIL/PASS conditions;
-- observation integrity checks and sandbox cleanup; and
-- preservation of the full evidence trail.
+| 경로 | 확인 결과 |
+|---|---|
+| 자동 테스트 | 31개 통과 |
+| 실제 OpenAI + 로컬 Node | 55 worlds, LLM 6회, 경계 반복 검증과 LLM STOP 완료 |
+| 규칙 기반 + Daytona | 53 worlds, 경계 검증 완료, 53개 삭제 |
+| 실제 OpenAI + Daytona | 12 worlds, 비단조 관찰로 INCONCLUSIVE, 12개 삭제 |
+| 웹 취소 + Daytona | 생성된 2개 모두 삭제, CANCELLED |
 
-The result is intentionally scoped:
+실제 LLM + Daytona 경계 확정 성공으로 위 경로들을 합쳐 말하면 안 됩니다. 세부 기록은 [VERIFICATION.md](VERIFICATION.md)에 있습니다. 원시 실행 로그는 로컬에 보관하며 이 저장소에는 포함하지 않았습니다.
 
-```text
-Node 26.8.1
-pooled allocation
-implicit multi-byte Uint32 view
+## 안전과 증거
 
-Observed transition:
-32,767 bytes FAIL → 32,768 bytes PASS
-```
+- 모델은 임의 shell을 생성하지 않고 허용된 factor 값만 선택합니다. 엔진이 실제 버전·입력·종료 코드·JSON 결과·정리 상태를 검증합니다.
+- 인프라 오류, 잘못된 action, 예산 초과, 결과 뒤집힘, 관측된 비단조성은 확정 결과로 포장하지 않습니다.
+- Daytona 생성 시 15분 wall-clock TTL, idle auto-stop 5분, 중지 시 auto-delete를 요청합니다. TTL 응답을 확인한 뒤에만 실행하며 정상·취소 경로 모두 즉시 삭제를 시도합니다.
+- 강제 종료, 생성 응답 유실, 삭제 실패, 서비스 장애 시에는 Daytona 대시보드 확인이 필요합니다. TTL은 보조 안전장치입니다.
+- `.env`, 가상환경, `runs/`는 Git에서 제외합니다. API 키를 issue·스크린샷·공유 파일에 포함하지 마세요.
+- `runs/<run-id>/events.jsonl`과 `summary.json`에 증거를 보관합니다. 다운로드 파일은 공유 전에 다시 확인하세요.
 
-This is a verified failure condition for the prepared fixture and tested environment.
+## 코드와 문서
 
----
+| 위치 | 역할 |
+|---|---|
+| `web.py`, `web/` | 로컬 실험 workspace와 API |
+| `demo.py`, `engine.py` | CLI·공유 실행 흐름·예산·탐색·검증 |
+| `planner.py`, `contracts.py` | LLM 선택과 엄격한 실험 계약 |
+| `executor.py`, `managed_runner.py` | 실제 실행·lifecycle·취소·TTL·정리 |
+| `fixtures/repro.js`, `node_prep.py` | 재현 oracle과 버전 고정 런타임 준비 |
+| `history.py` | 저장된 증거와 단일 world 재현 |
+| `tests/` | mock·합성 oracle 기반 회귀 테스트, 선택적 HTTP smoke |
+| [docs/](docs/README.md) | OnePager·Handoff·Pitch·UI 기획·사전 근거 |
 
-## Scope and limitations
-
-EnvBisect currently targets deterministic, reproducible failures whose relevant factors can be represented as bounded experimental interventions.
-
-It does not yet claim to solve:
-
-- arbitrary factor discovery;
-- flaky races or nondeterministic failures;
-- external production state that cannot be reconstructed;
-- hardware-specific failures outside the available execution environment; or
-- complete source-level root-cause analysis.
-
-A verified failure condition is not automatically a fix. It is the execution evidence needed to make the next engineering decision with confidence.
-
----
-
-## Built for Daytona HackSprint
-
-EnvBisect was created to explore a simple product question:
-
-> What if an AI debugging system did not stop at an explanation—and could run the next experiment itself?
-
-**AI designs the experiments. Daytona runs isolated worlds. Execution narrows the failure condition.**
-
+`daytona_runner.py`는 기존 검증본 보존용이며 현재 기본 원격 실행은 `managed_runner.py`를 사용합니다. 기획 문서의 미래 계획·사전 실험과 현재 구현은 구분해서 읽어 주세요.

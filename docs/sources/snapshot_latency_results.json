@@ -1,0 +1,204 @@
+{
+  "date_utc": "2026-09-18T15:46:02.175818+00:00",
+  "snapshot_name": "envbisect-node-2681-spike-20260918154602",
+  "baseline": {
+    "path": "default+prep",
+    "create_s": 1.609,
+    "upload_s": 5.126,
+    "prep_s": 3.906,
+    "execute_s": 0.699,
+    "oracle": {
+      "exit_code": 1,
+      "status": "FAIL",
+      "node": "v26.8.1",
+      "backing_length": 65599,
+      "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+    },
+    "delete_s": 0.726,
+    "deleted": true,
+    "total_s": 12.069
+  },
+  "snapshot_creation": {
+    "snapshot_name": "envbisect-node-2681-spike-20260918154602",
+    "base_create_s": 1.113,
+    "organization_id_available": true,
+    "base_upload_s": 1.551,
+    "base_prep_s": 3.039,
+    "base_prep_output_tail": "node_sha256_verified 26.8.1 3e301118d7df53d563b7e96c1617545f26e2f76f9724be668d6cab65c15dda5d\nv26.8.1\n859ef1a81f8389ce3956c8eb2f05eaa9eb2cd63457a2b1228b3e0fbe90246040  repro.js\n",
+    "stop_states": [
+      "stopping",
+      "stopped"
+    ],
+    "stop_s": 3.796,
+    "snapshot_post_status": 200,
+    "snapshot_post_s": 0.687,
+    "snapshot_states": [
+      "snapshotting",
+      "active"
+    ],
+    "snapshot_ready_s": 26.541,
+    "active": true,
+    "base_delete_s": 0.61,
+    "base_deleted": true,
+    "total_setup_s": 36.652
+  },
+  "snapshot_single": {
+    "path": "prepared-snapshot",
+    "label": "single",
+    "create_s": 4.908,
+    "execute_s": 0.728,
+    "oracle": {
+      "exit_code": 1,
+      "status": "FAIL",
+      "node": "v26.8.1",
+      "backing_length": 65599,
+      "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+    },
+    "delete_s": 0.554,
+    "deleted": true,
+    "total_s": 6.191
+  },
+  "fanout": [
+    {
+      "path": "prepared-snapshot",
+      "label": "fanout-1",
+      "create_s": 1.216,
+      "execute_s": 0.755,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.638,
+      "deleted": true,
+      "total_s": 2.609
+    },
+    {
+      "path": "prepared-snapshot",
+      "label": "fanout-2",
+      "create_s": 1.344,
+      "execute_s": 0.713,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.522,
+      "deleted": true,
+      "total_s": 2.579
+    },
+    {
+      "path": "prepared-snapshot",
+      "label": "fanout-3",
+      "create_s": 1.255,
+      "execute_s": 0.711,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.541,
+      "deleted": true,
+      "total_s": 2.511
+    },
+    {
+      "path": "prepared-snapshot",
+      "label": "fanout-4",
+      "create_s": 1.232,
+      "execute_s": 0.735,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.533,
+      "deleted": true,
+      "total_s": 2.501
+    }
+  ],
+  "fanout_wall_s": 2.614,
+  "baseline_fanout": [
+    {
+      "path": "default+prep",
+      "create_s": 1.66,
+      "upload_s": 4.572,
+      "prep_s": 3.631,
+      "execute_s": 0.776,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.509,
+      "deleted": true,
+      "total_s": 11.15
+    },
+    {
+      "path": "default+prep",
+      "create_s": 1.29,
+      "upload_s": 4.918,
+      "prep_s": 3.276,
+      "execute_s": 0.791,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.549,
+      "deleted": true,
+      "total_s": 10.826
+    },
+    {
+      "path": "default+prep",
+      "create_s": 1.148,
+      "upload_s": 5.058,
+      "prep_s": 3.276,
+      "execute_s": 0.787,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.554,
+      "deleted": true,
+      "total_s": 10.825
+    },
+    {
+      "path": "default+prep",
+      "create_s": 1.042,
+      "upload_s": 5.165,
+      "prep_s": 3.279,
+      "execute_s": 0.762,
+      "oracle": {
+        "exit_code": 1,
+        "status": "FAIL",
+        "node": "v26.8.1",
+        "backing_length": 65599,
+        "error": "RangeError: byte length of Uint32Array should be a multiple of 4"
+      },
+      "delete_s": 0.567,
+      "deleted": true,
+      "total_s": 10.816
+    }
+  ],
+  "baseline_fanout_wall_s": 11.153,
+  "warm_pool_probe": {
+    "create_status": 404,
+    "reason": "{\"path\":\"/api/warm-pools\",\"timestamp\":\"2026-09-18T15:48:03.476Z\",\"statusCode\":404,\"error\":\"Not Found\",\"message\":\"Cannot POST /api/warm-pools\"}",
+    "error": "HTTPError: 404 Client Error: Not Found for url: https://app.daytona.io/api/warm-pools"
+  }
+}
