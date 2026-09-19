@@ -118,6 +118,7 @@ def execute(args, bundle, executor, model, *, run_id=None, cancelled=None, on_ev
                 "execution": "LIVE", "local_platform": sys.platform,
                 "isolation": "fresh Daytona Linux sandbox" if args.backend == "daytona" else "fresh local process + temporary directory; NOT sandboxed",
                 "reproduction": getattr(args, "reproduction", None), "smoke": args.smoke,
+                "source_issue_url": getattr(args, "issue_url", None),
                 "local_node_dir": str(executor.node_dir) if executor.node_dir else None,
                 "ttl_minutes": 15 if args.backend == "daytona" else None}
     audit("run_started", {**metadata, "bundle": bundle})

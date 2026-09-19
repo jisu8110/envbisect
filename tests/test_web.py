@@ -93,7 +93,7 @@ class ManagerTests(unittest.TestCase):
 
     def test_run_options_reject_commands_or_excessive_budget(self):
         manager=RunManager()
-        for value in ({"shell":"anything"},{"max_worlds":10000},{"max_worlds":True},{"seconds":0},{"planner":"anything"},{"source_world":"baseline-bad"},{"source_run":"20260919-144400-5b5cea"}):
+        for value in ({"shell":"anything"},{"max_worlds":10000},{"max_worlds":True},{"seconds":0},{"planner":"anything"},{"backend":"local"},{"planner":"rules"},{"smoke":True},{"source_world":"baseline-bad"},{"source_run":"20260919-144400-5b5cea"}):
             with self.assertRaises(ValueError):manager.start(value)
 
     def test_duplicate_start_and_shutdown(self):
@@ -101,15 +101,55 @@ class ManagerTests(unittest.TestCase):
         def fake_execute(*args,**kwargs):
             entered.set(); release.wait(3)
         with patch("web.execute",side_effect=fake_execute),patch("web.NodeExecutor"),patch.dict(os.environ,{"OPENAI_API_KEY":"test-only"}):
-            manager=RunManager(); identifier=manager.start({"planner":"rules"}); self.assertTrue(entered.wait(1))
+            manager=RunManager(); identifier=manager.start({}); self.assertTrue(entered.wait(1))
             try:
-                with self.assertRaises(RuntimeError):manager.start({"planner":"rules"})
+                with self.assertRaises(RuntimeError):manager.start({})
                 with self.assertRaises(ValueError):manager.stop("not-the-active-run")
                 manager.stop(identifier);self.assertTrue(manager.cancelled.is_set())
                 manager.shutdown()
             finally:
                 release.set();manager.worker.join(3)
-            with self.assertRaises(RuntimeError):manager.start({"planner":"rules"})
+            with self.assertRaises(RuntimeError):manager.start({})
+
+    def test_web_defaults_are_daytona_and_llm(self):
+        with patch("web.execute") as execute, patch("web.NodeExecutor") as executor, patch.dict(os.environ,{"OPENAI_API_KEY":"test-only"}):
+            manager=RunManager(); manager.start({}); manager.worker.join(3)
+        executor.assert_called_once_with("daytona")
+        args=execute.call_args.args[0]
+        self.assertEqual((args.backend,args.planner,args.smoke),("daytona","openai",False))
+
+    def test_unsupported_issue_never_starts_execution(self):
+        from web import DEMO_ISSUE_URL
+        with patch("web.NodeExecutor") as executor, patch("web.execute") as execute:
+            for url in ("",None,123,"https://github.com/nodejs/node/issues/1",DEMO_ISSUE_URL+"?other=1","https://github.com.evil.invalid/nodejs/node/issues/65601"):
+                with self.subTest(url=url),self.assertRaisesRegex(ValueError,"지원하지 않는 링크"):
+                    RunManager().start({"issue_url":url})
+        executor.assert_not_called();execute.assert_not_called()
+
+    def test_demo_issue_is_canonicalized_without_fetching(self):
+        from web import DEMO_ISSUE_URL
+        with patch("web.execute") as execute,patch("web.NodeExecutor"),patch.dict(os.environ,{"OPENAI_API_KEY":"test-only"}):
+            manager=RunManager();manager.start({"issue_url":"  "+DEMO_ISSUE_URL+"/  "});manager.worker.join(3)
+        self.assertEqual(execute.call_args.args[0].issue_url,DEMO_ISSUE_URL)
+
+    def test_local_history_cannot_be_reexecuted_from_web(self):
+        with patch("web.reproduction",return_value={"backend":"local"}),patch("web.NodeExecutor") as executor:
+            with self.assertRaisesRegex(ValueError,"read-only"):
+                RunManager().start({"source_run":"20260919-144400-5b5cea","source_world":"baseline-bad"})
+        executor.assert_not_called()
+
+    def test_web_markup_has_no_runtime_or_planner_selectors(self):
+        from config import ROOT
+        html=(ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        js=(ROOT / "web" / "app.js").read_text(encoding="utf-8")
+        for name in ("backend","planner"):
+            self.assertNotIn(f'id="{name}"',html)
+            self.assertNotIn(f"$('{name}')",js)
+        for name in ("demo-open","demo-pin","demo-hint"):
+            self.assertNotIn(f'id="{name}"',html)
+            self.assertNotIn(f"$('{name}')",js)
+        self.assertIn('id="experiment-form"',html)
+        self.assertIn('value="https://github.com/nodejs/node/issues/65601"',html)
 
 
 if __name__=='__main__':unittest.main()

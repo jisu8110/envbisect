@@ -20,11 +20,11 @@ from history import read_events, read_summary, reproduction, run_path
 
 VISIBLE_EVENTS = {"run_started", "worlds_submitted", "world_phase", "world_completed", "observations",
                   "planner_waiting", "action", "search_bracket", "verified_boundary", "run_finished"}
+DEMO_ISSUE_URL = "https://github.com/nodejs/node/issues/65601"
 
 
 class RunManager:
-    def __init__(self, node_dir=None):
-        self.node_dir = node_dir
+    def __init__(self):
         self.lock = threading.RLock()
         self.worker = None
         self.active_id = None
@@ -35,30 +35,33 @@ class RunManager:
         return self.worker is not None and self.worker.is_alive()
 
     def start(self, options):
-        if not isinstance(options, dict) or set(options) - {"backend", "planner", "max_worlds", "seconds", "smoke", "source_run", "source_world"}:
+        if not isinstance(options, dict) or set(options) - {"issue_url", "backend", "planner", "max_worlds", "seconds", "source_run", "source_world"}:
             raise ValueError("Unsupported run options")
+        issue_url = options.get("issue_url", DEMO_ISSUE_URL)
+        if not isinstance(issue_url, str) or issue_url.strip().rstrip("/") != DEMO_ISSUE_URL:
+            raise ValueError("아직 지원하지 않는 링크입니다. 현재는 데모 이슈로 동작을 확인해 보세요.")
         with self.lock:
             if not self.accepting:
                 raise RuntimeError("Server is shutting down")
             if self.running():
                 raise RuntimeError("An experiment is already running; stop it before starting another")
             backend, planner = options.get("backend", "daytona"), options.get("planner", "openai")
-            if backend not in {"daytona", "local"} or planner not in {"openai", "rules"}:
-                raise ValueError("Unsupported backend or planner")
+            if backend != "daytona" or planner != "openai":
+                raise ValueError("Web experiments require Daytona + LLM")
             worlds, seconds = options.get("max_worlds", 80), options.get("seconds", 900)
             if type(worlds) is not int or not 2 <= worlds <= 100 or type(seconds) is not int or not 30 <= seconds <= 1800:
                 raise ValueError("Use 2..100 worlds and 30..1800 seconds")
-            if type(options.get("smoke", False)) is not bool:
-                raise ValueError("smoke must be boolean")
             if bool(options.get("source_run")) != bool(options.get("source_world")):
                 raise ValueError("Reproduction requires both source_run and source_world")
             args = SimpleNamespace(backend=backend, planner=planner, max_worlds=worlds, seconds=seconds,
-                                   max_rounds=6, parallel=4, smoke=options.get("smoke", False), reproduction=None)
+                                   max_rounds=6, parallel=4, smoke=False, reproduction=None, issue_url=DEMO_ISSUE_URL)
             if options.get("source_run"):
                 args.reproduction = reproduction(options["source_run"], options.get("source_world"))
+                if args.reproduction["backend"] != "daytona":
+                    raise ValueError("Local history is read-only in the web workspace")
                 validate_assignment(args.reproduction["factors"], load_bundle())
                 args.smoke = True
-            executor = NodeExecutor(backend, self.node_dir)
+            executor = NodeExecutor("daytona")
             if planner == "openai" and not args.smoke and not os.getenv("OPENAI_API_KEY"):
                 raise ValueError("OPENAI_API_KEY is missing")
             run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
@@ -155,14 +158,14 @@ def handler_for(manager, token):
             parsed = urlsplit(self.path)
             query = parse_qs(parsed.query)
             try:
-                static = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css"}
+                static = {"/": "index.html", "/app.js": "app.js", "/presentation.js": "presentation.js", "/style.css": "style.css", "/theme.css": "theme.css"}
                 if parsed.path in static:
                     name = static[parsed.path]
-                    mime = {"index.html": "text/html; charset=utf-8", "app.js": "text/javascript; charset=utf-8", "style.css": "text/css; charset=utf-8"}[name]
+                    mime = "text/javascript; charset=utf-8" if name.endswith(".js") else "text/css; charset=utf-8" if name.endswith(".css") else "text/html; charset=utf-8"
                     return self.send(200, (ROOT / "web" / name).read_bytes(), mime)
                 if parsed.path == "/api/status":
                     return self.send(200, {"csrf": token, "active_id": manager.active_id if manager.running() else None,
-                        "history": manager.history(), "local_available": bool(manager.node_dir), "local_node_dir": str(manager.node_dir) if manager.node_dir else None,
+                        "history": manager.history(), "backend": "daytona", "planner": "openai",
                         "keys": {k: bool(os.getenv(k)) for k in ("DAYTONA_API_KEY", "OPENAI_API_KEY")},
                         "model": os.getenv("OPENAI_MODEL") or "gpt-5.5"})
                 if parsed.path == "/api/run":
@@ -206,10 +209,9 @@ def handler_for(manager, token):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--node-dir", type=Path, help="Enable local execution with preinstalled pinned Node binaries")
     args = parser.parse_args()
     load_env()
-    manager = RunManager(args.node_dir)
+    manager = RunManager()
     server = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(manager, secrets.token_urlsafe(32)))
     stopping = threading.Event()
     def stop(signum, frame):

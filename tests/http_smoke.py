@@ -1,4 +1,4 @@
-"""Explicit integration test against a running web.py; --live uses TWO Daytona worlds."""
+"""Default checks web security only; --live adds a paid Daytona cancellation check."""
 import argparse
 import sys
 import time
@@ -20,7 +20,12 @@ def main():
     assert requests.post(base+"/api/start",json={},timeout=5).status_code==403
     assert requests.post(base+"/api/start",json={},headers={**headers,"Origin":"https://untrusted.example"},timeout=5).status_code==403
     assert requests.post(base+"/api/start",json={"shell":"not executable"},headers=headers,timeout=5).status_code==400
-    options={"backend":"daytona" if args.live else "local","planner":"rules","max_worlds":2,"seconds":300,"smoke":True}
+    for options in ({"backend":"local"},{"planner":"rules"},{"smoke":True},{"issue_url":"https://github.com/nodejs/node/issues/1"}):
+        assert requests.post(base+"/api/start",json=options,headers=headers,timeout=5).status_code==400
+    if not args.live:
+        print({"security_checks":"PASS","daytona_llm_only":"PASS","paid_runs":0})
+        return 0
+    options={"max_worlds":2,"seconds":90}
     response=requests.post(base+"/api/start",json=options,headers=headers,timeout=5)
     assert response.status_code==202,response.text
     run_id=response.json()["run_id"]

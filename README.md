@@ -10,14 +10,17 @@
 
 ## 현재 구현
 
+- GitHub 이슈 링크 입력창에 데모 링크가 미리 채워져 있습니다. 현재는 **Node.js #65601 하나만 지원**하며 다른 링크는 실행 전에 차단합니다.
 - 준비된 Node.js 사례의 good/bad 조건을 실제 실행해 재현합니다.
 - LLM이 이전 world ID와 PASS/FAIL을 근거로 다음 비교를 선택합니다.
 - 엔진이 허용된 조건만 실행하고, 숫자 축 탐색과 인접 조건 반복 검증을 담당합니다.
 - Daytona에서 실험별 독립 sandbox를 생성·병렬 실행·삭제합니다.
 - 로컬 웹에서 실험 시작·안전 중단·기록 조회·증거 다운로드·실패 조건 재실행이 가능합니다.
+- 웹의 새 실험은 **Daytona + LLM으로 고정**되어 있습니다. Local/RULES 선택 메뉴는 없고 웹 API에서도 해당 실행을 거부합니다.
+- 검정·차콜 + 라임 그린 테마와 6장면 발표 모드를 제공합니다. 실제 증거에 기반한 비교·다음 결정과 sandbox lifecycle을 표시합니다.
 - CLI와 웹은 같은 엔진을 사용합니다. 계정 연결 UI나 채팅 UI는 없습니다.
 
-**현재 입력은 `bundle.json`의 준비된 Node 사례입니다. 임의 CI 링크 가져오기, SciPy Demo B, snapshot 가속, 자동 patch/PR 생성은 아직 구현하지 않았습니다.**
+**링크를 입력한다고 GitHub 내용을 자동 분석하는 것은 아닙니다.** 지원하는 이슈를 `bundle.json`과 준비된 재현 테스트에 연결합니다. 임의 저장소·PR·CI 실패 가져오기, SciPy Demo B, snapshot 가속, 자동 patch/PR 생성은 아직 구현하지 않았습니다.
 
 ```mermaid
 flowchart LR
@@ -56,9 +59,34 @@ OPENAI_MODEL="gpt-5.5"
 .venv\Scripts\python web.py
 ```
 
-브라우저 주소창에 `http://127.0.0.1:8000`을 입력합니다. 터미널은 열어 두세요. **웹 서버를 켜는 것만으로 과금되는 실험이 시작되지는 않습니다.** 화면의 `실험 시작`을 누르면 선택한 모드로 실행됩니다.
+브라우저 주소창에 `http://127.0.0.1:8000`을 입력합니다. 터미널은 열어 두세요. **웹 서버를 켜는 것만으로 과금되는 실험이 시작되지는 않습니다.** 기본으로 채워진 데모 이슈 링크를 확인하고 Enter 또는 `실험 시작`을 누르면 실제 Daytona + LLM 실험을 시작합니다.
 
 PowerShell의 설정 파일 복사는 `Copy-Item .env.example .env`입니다. macOS/Linux에서는 `python3 -m venv .venv`, `.venv/bin/python -m pip install -r requirements.txt`, `cp .env.example .env`, `.venv/bin/python web.py`를 사용합니다. 로컬 웹의 실사용 검증 환경은 Windows입니다.
+
+### 이슈 입력과 실행 기록
+
+1. `https://github.com/nodejs/node/issues/65601`이 입력창의 기본값입니다. 앞뒤 공백과 마지막 슬래시는 허용합니다.
+2. 다른 링크를 제출하면 **“아직 지원하지 않는 링크입니다”** 안내와 **데모 링크로 되돌리기** 버튼이 나타납니다. 이때 유료 실행이나 외부 링크 요청은 하지 않습니다.
+3. 실행 중에는 실제 실험 결과가 갱신됩니다. 완료 결과는 `실행 기록`에서 다시 열 수 있습니다.
+4. 기록 조회는 `RECORDED`이며 새 실행이 아닙니다. 예전 Local/RULES 기록이 있더라도 출처를 바꾸어 표시하지 않습니다. 새 clone에는 실행 로그가 없으므로 기록 목록은 비어 있습니다.
+5. `실패 world 다시 실행`은 Daytona 기록의 조건 하나만 재실행합니다. 새로운 실험을 선택하지 않으므로 **LLM 호출 없는 수동 재현**으로 표시합니다. Local 기록은 조회·다운로드만 가능합니다.
+
+### 발표 모드
+
+실행 기록을 선택하고 상단 `발표 모드`를 누릅니다. 이전/다음 버튼 또는 좌우 방향키로 이동하고, `워크스페이스로 돌아가기`로 나옵니다.
+
+```text
+Incident → Baseline → Controlled Experiment
+        → Next Decision → Verified Boundary → Evidence Package
+```
+
+- 설정과 전체 world 목록을 접고 핵심 비교만 보여줍니다.
+- `Only size changed` 같은 문장은 실제로 다른 입력 조건이 같을 때만 표시합니다.
+- Next Decision은 **그 결정 전에 존재했고 planner가 인용한 관찰**을 사용합니다. 이후 탐색 결과를 과거의 근거로 소급하지 않습니다.
+- Daytona 카드에는 생성·실행·증거 수집·삭제 이력, 짧은 sandbox ID와 cleanup 상태를 표시합니다. Local 실행은 별도로 표시합니다.
+- 검증된 경계가 없으면 성공 장면을 만들지 않고 해당 상태를 표시합니다.
+
+발표 모드는 기록 표시 방식만 바꾸며 자동 재실행하지 않습니다. 별도의 Demo Run 열기·고정 버튼은 없습니다.
 
 ### 수정 반영과 안전 중단
 
@@ -74,7 +102,9 @@ PowerShell의 설정 파일 복사는 `Copy-Item .env.example .env`입니다. ma
 
 다른 포트는 `web.py --port 8001`입니다. 서버는 loopback에만 바인딩하며 `.env`나 소스 디렉터리 전체를 웹에 노출하지 않습니다.
 
-## CLI와 실행 모드
+## CLI — 개발·검증용
+
+웹은 Daytona + LLM 전용입니다. 아래 Local/RULES 옵션은 개발·회귀 확인을 위한 **CLI에만** 남아 있습니다.
 
 아래의 `python`은 가상환경의 실행 파일을 뜻합니다. Windows CMD에서는 `.venv\Scripts\python`으로 실행하세요.
 
@@ -84,6 +114,7 @@ python demo.py --smoke                 # baseline 2개, LLM 호출 없음
 python demo.py --planner rules         # Daytona + 규칙 기반 선택, AI 아님
 python demo.py --max-worlds 60 --seconds 600
 python -m unittest discover -s tests -v  # 유료 호출 없는 자동 테스트
+node tests/test_presentation.js          # Node 설치 시, 발표 증거 표시 로직 테스트
 ```
 
 기본 예산은 **80 worlds / 동시 4개 / planner 최대 6회 / 900초 soft budget**입니다. 실행 중인 HTTP 요청과 정리는 예산 종료 뒤에도 완료를 기다릴 수 있습니다. 자동 재시도나 규칙 모드로의 조용한 전환은 없습니다.
@@ -96,7 +127,9 @@ node-versions/
 └── 26.8.1/node.exe
 ```
 
-Windows 외에는 실행 파일 이름이 `node`입니다. `python web.py --node-dir "path/to/node-versions"`로 로컬 모드를 활성화할 수 있습니다. `Local + RULES`는 유료 API 호출이 없고, `Local + LLM`은 OpenAI 호출 비용만 발생합니다. **로컬 프로세스 실행은 보안 sandbox가 아닙니다.**
+Windows 외에는 실행 파일 이름이 `node`입니다. `python demo.py --backend local --planner rules --node-dir "path/to/node-versions"`는 유료 API 호출 없이 고정 fixture를 실행합니다. CLI에서 `--planner openai`로 바꾸면 LLM 호출 비용이 발생합니다. **로컬 프로세스 실행은 보안 sandbox가 아닙니다.** 웹 서버의 `--node-dir` 옵션은 제거했습니다.
+
+실행 중인 웹 서버에 대해 `python tests/http_smoke.py`를 실행하면 유료 실행 없이 요청 보안·지원 링크·모드 제한을 검사합니다. `--live`를 추가하면 실제 Daytona 자원을 생성하는 취소 검사가 되므로 과금에 유의하세요.
 
 ## 데모의 의미
 
@@ -110,13 +143,15 @@ Windows 외에는 실행 파일 이름이 `node`입니다. `python web.py --node
 
 | 경로 | 확인 결과 |
 |---|---|
-| 자동 테스트 | 31개 통과 |
+| Python 자동 테스트 | 36개 통과 |
+| 발표 표시 로직 / 브라우저 | JavaScript 테스트 통과; 다크 테마·장면 이동·링크 입력/차단/복원 확인 |
 | 실제 OpenAI + 로컬 Node | 55 worlds, LLM 6회, 경계 반복 검증과 LLM STOP 완료 |
 | 규칙 기반 + Daytona | 53 worlds, 경계 검증 완료, 53개 삭제 |
 | 실제 OpenAI + Daytona | 12 worlds, 비단조 관찰로 INCONCLUSIVE, 12개 삭제 |
+| 짧은 실제 OpenAI + Daytona 확인 | 6 worlds, LLM 1회, 32.253초, 한 라운드 예산 종료로 INCONCLUSIVE, 6개 삭제 |
 | 웹 취소 + Daytona | 생성된 2개 모두 삭제, CANCELLED |
 
-실제 LLM + Daytona 경계 확정 성공으로 위 경로들을 합쳐 말하면 안 됩니다. 세부 기록은 [VERIFICATION.md](VERIFICATION.md)에 있습니다. 원시 실행 로그는 로컬에 보관하며 이 저장소에는 포함하지 않았습니다.
+실제 LLM + Daytona 경계 확정 성공으로 위 경로들을 합쳐 말하면 안 됩니다. 짧은 검증은 연결 확인이지 전체 성공 검증이 아닙니다. 시간은 단일 실행 관찰이며 성능 보장이 아닙니다. 세부 기록은 [VERIFICATION.md](VERIFICATION.md)에 있습니다. 원시 실행 로그는 로컬에 보관하며 이 저장소에는 포함하지 않았습니다.
 
 ## 안전과 증거
 
