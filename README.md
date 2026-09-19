@@ -8,8 +8,9 @@ against the final repository and its latest live run.
 
 ### Find the condition that makes your software fail.
 
-AI can suggest why software failed.  
-**EnvBisect runs the experiments that determine under which conditions it fails.**
+**CI tells you that something failed.  
+AI can tell you what might be wrong.  
+EnvBisect runs the experiments that show under which conditions it actually fails.**
 
 Built for the Daytona HackSprint.
 
@@ -17,35 +18,70 @@ Built for the Daytona HackSprint.
 
 ---
 
-## Why EnvBisect?
+## The debugging gap
 
-A CI failure is often only the beginning.
+Imagine a dependency or runtime update breaks a CI job.
 
-After a runtime, dependency, or configuration change breaks a test, an engineer still has to:
+You paste the logs into an AI coding agent and get a reasonable answer:
 
-**recreate the environment → change one condition → run again → compare → repeat**
+> “This looks like a runtime regression.”
 
-LLMs can suggest hypotheses. Coding agents can run commands. But the investigation itself is still usually an ad-hoc sequence of experiments coordinated by a human.
+Useful—but not enough to make an engineering decision.
+
+Does every workload fail on that runtime? Does the failure disappear with a different option? Is it triggered only by a particular input? Should you roll back the runtime, use a workaround, or wait for an upstream fix?
+
+**Someone still has to prove it.**
+
+```text
+recreate an environment
+        ↓
+change one condition
+        ↓
+run the test
+        ↓
+compare the result
+        ↓
+form the next hypothesis
+        ↓
+repeat
+```
+
+That last mile between an AI hypothesis and executable evidence is the problem EnvBisect is built to solve.
 
 **EnvBisect turns that sequence into a repeatable experimental debugging loop.**
 
 > The missing layer is not another explanation.  
-> It is an experiment loop.
+> It is the experiment loop between a hypothesis and evidence.
 
-### Why this matters
+---
 
-Executable reproduction evidence changes debugging outcomes.
+## This is a real debugging problem
+
+Reproduction and execution context are not just conveniences.
 
 - In [Google's agentic bug-reproduction study](https://arxiv.org/html/2502.01821v2#S6.SS2), plausible fixes on a 23-bug reproduction-test subset increased from **13/23 to 17/23** when executable bug-reproduction tests were available.
 - In a [SaaS field study](https://www.sciencedirect.com/science/article/pii/S0164121226002943), broader monitoring, contextual evidence, and workflow improvements coincided with non-reproducible bugs falling from **33% to 0%** and mean closure time decreasing from **60 to 15 days**.
 
-These are external signals, not EnvBisect performance numbers. They point to the same idea:
+These are external research results, not EnvBisect performance numbers. They point to the same idea:
 
-**Debugging gets better when hypotheses can be turned into reproducible execution evidence.**
+> **A plausible explanation helps.  
+> Reproducible execution evidence lets you act on it.**
+
+### Who is this for?
+
+EnvBisect starts with a narrow but common moment:
+
+**A test is reproducibly failing after an environment, dependency, runtime, configuration, or workload change—but the condition that actually triggers the failure is still unclear.**
+
+It is for the engineer who already knows *that* something broke and now needs evidence for *when* it breaks.
 
 ---
 
-## How it works
+## EnvBisect turns debugging into experiments
+
+Instead of asking an AI to keep explaining the failure, EnvBisect asks:
+
+### What should we execute next to reduce uncertainty?
 
 ```mermaid
 flowchart TD
@@ -67,6 +103,36 @@ Daytona creates the worlds.
 Execution decides what's true.**
 
 The planner never writes arbitrary shell commands. It selects from a bounded set of allowed experimental factors. The deterministic engine validates that action, creates concrete world specifications, executes them, verifies the observations, and decides when the evidence is sufficient.
+
+---
+
+## Why not just let an LLM run experiments?
+
+A general-purpose coding agent can propose a command, run it, read the output, and propose another command. That is useful—but it does not automatically make the investigation controlled, reproducible, or trustworthy.
+
+CI and general LLM agents solve different parts of the problem. EnvBisect adds the experimental discipline between them.
+
+| | Traditional CI | General LLM agent | EnvBisect |
+|---|---|---|---|
+| **What runs next** | A predefined pipeline or matrix | A free-form tool call or suggestion | A bounded experiment selected from prior evidence |
+| **Environment** | A build job configured in advance | Whatever environment the agent currently has | Fresh, isolated Daytona worlds with explicit factors |
+| **Control** | Deterministic but not adaptive | Adaptive but potentially ad hoc | Adaptive planning behind a strict experiment contract |
+| **Numeric search** | Must be scripted beforehand | The model may guess values | The LLM selects the axis; a deterministic engine generates probes |
+| **Result handling** | Logs and job status | Tool output interpreted in conversation | Validated PASS/FAIL observations with provenance |
+| **Failure behavior** | Pipeline fails or stops | The model may keep trying or change approach | Invalid actions, infrastructure errors, and budget exhaustion become `INCONCLUSIVE` |
+| **Output** | CI logs | An explanation or patch attempt | An auditable Evidence Package |
+
+EnvBisect deliberately does **not** make the LLM the executor, search algorithm, and judge at the same time.
+
+- **The LLM is the planner.** It chooses one useful experimental action and must cite previous world IDs and PASS/FAIL evidence.
+- **The contract is the guardrail.** Unsupported factors, arbitrary commands, unmeasured seeds, and malformed actions are rejected before execution.
+- **The engine is deterministic.** It controls budgets, generates boundary probes, checks monotonicity within the observed bracket, and repeats adjacent endpoints.
+- **The oracle decides the outcome.** PASS, FAIL, and infrastructure errors come from measured execution—not model confidence.
+- **The evidence remains auditable.** Every action, world, observation, and cleanup result is preserved for review and reproduction.
+
+The advantage is not simply that an LLM can try things automatically.
+
+> **EnvBisect turns an LLM's adaptive reasoning into a controlled experimental process whose conclusions come from execution.**
 
 ---
 
@@ -356,5 +422,4 @@ EnvBisect was created to explore a simple product question:
 > What if an AI debugging system did not stop at an explanation—and could run the next experiment itself?
 
 **AI designs the experiments. Daytona runs isolated worlds. Execution narrows the failure condition.**
-
 
