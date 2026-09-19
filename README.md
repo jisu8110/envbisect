@@ -57,6 +57,8 @@ That last mile between an AI hypothesis and executable evidence is the problem E
 
 ## This is a real debugging problem
 
+**The expensive part is often not getting a hypothesis. It is proving which conditions actually matter.**
+
 Reproduction and execution context are not just conveniences.
 
 - In [Google's agentic bug-reproduction study](https://arxiv.org/html/2502.01821v2#S6.SS2), plausible fixes on a 23-bug reproduction-test subset increased from **13/23 to 17/23** when executable bug-reproduction tests were available.
@@ -108,31 +110,13 @@ The planner never writes arbitrary shell commands. It selects from a bounded set
 
 ## Why not just let an LLM run experiments?
 
-A general-purpose coding agent can propose a command, run it, read the output, and propose another command. That is useful—but it does not automatically make the investigation controlled, reproducible, or trustworthy.
+A coding agent can run experiments too. EnvBisect makes that investigation controlled, reproducible, and auditable: the model chooses within a bounded experiment contract, while execution—not model confidence—decides the result.
 
-CI and general LLM agents solve different parts of the problem. EnvBisect adds the experimental discipline between them.
+```text
+Planner chooses → Engine validates → Daytona executes → Oracle decides
+```
 
-| | Traditional CI | General LLM agent | EnvBisect |
-|---|---|---|---|
-| **What runs next** | A predefined pipeline or matrix | A free-form tool call or suggestion | A bounded experiment selected from prior evidence |
-| **Environment** | A build job configured in advance | Whatever environment the agent currently has | Fresh, isolated Daytona worlds with explicit factors |
-| **Control** | Deterministic but not adaptive | Adaptive but potentially ad hoc | Adaptive planning behind a strict experiment contract |
-| **Numeric search** | Must be scripted beforehand | The model may guess values | The LLM selects the axis; a deterministic engine generates probes |
-| **Result handling** | Logs and job status | Tool output interpreted in conversation | Validated PASS/FAIL observations with provenance |
-| **Failure behavior** | Pipeline fails or stops | The model may keep trying or change approach | Invalid actions, infrastructure errors, and budget exhaustion become `INCONCLUSIVE` |
-| **Output** | CI logs | An explanation or patch attempt | An auditable Evidence Package |
-
-EnvBisect deliberately does **not** make the LLM the executor, search algorithm, and judge at the same time.
-
-- **The LLM is the planner.** It chooses one useful experimental action and must cite previous world IDs and PASS/FAIL evidence.
-- **The contract is the guardrail.** Unsupported factors, arbitrary commands, unmeasured seeds, and malformed actions are rejected before execution.
-- **The engine is deterministic.** It controls budgets, generates boundary probes, checks monotonicity within the observed bracket, and repeats adjacent endpoints.
-- **The oracle decides the outcome.** PASS, FAIL, and infrastructure errors come from measured execution—not model confidence.
-- **The evidence remains auditable.** Every action, world, observation, and cleanup result is preserved for review and reproduction.
-
-The advantage is not simply that an LLM can try things automatically.
-
-> **EnvBisect turns an LLM's adaptive reasoning into a controlled experimental process whose conclusions come from execution.**
+The advantage is not simply that an LLM can try things automatically. **EnvBisect turns adaptive reasoning into a controlled experimental process whose conclusions come from execution.**
 
 ---
 
@@ -276,6 +260,30 @@ The planner chooses. The engine validates. Daytona executes. The oracle decides.
 
 ---
 
+## CI, a general agent, and EnvBisect
+
+CI and general-purpose LLM agents solve important but different parts of debugging. EnvBisect adds the experimental discipline between them.
+
+| | Traditional CI | General LLM agent | EnvBisect |
+|---|---|---|---|
+| **What runs next** | A predefined pipeline or matrix | A free-form tool call or suggestion | A bounded experiment selected from prior evidence |
+| **Environment** | A build job configured in advance | Whatever environment the agent currently has | Fresh, isolated Daytona worlds with explicit factors |
+| **Control** | Deterministic but not adaptive | Adaptive but potentially ad hoc | Adaptive planning behind a strict experiment contract |
+| **Numeric search** | Must be scripted beforehand | The model may guess values | The LLM selects the axis; a deterministic engine generates probes |
+| **Result handling** | Logs and job status | Tool output interpreted in conversation | Validated PASS/FAIL observations with provenance |
+| **Failure behavior** | Pipeline fails or stops | The model may keep trying or change approach | Invalid actions, infrastructure errors, and budget exhaustion become `INCONCLUSIVE` |
+| **Output** | CI logs | An explanation or patch attempt | An auditable Evidence Package |
+
+EnvBisect deliberately does **not** make the LLM the executor, search algorithm, and judge at the same time.
+
+- **The LLM is the planner.** It chooses one useful experimental action and must cite previous world IDs and PASS/FAIL evidence.
+- **The contract is the guardrail.** Unsupported factors, arbitrary commands, unmeasured seeds, and malformed actions are rejected before execution.
+- **The engine is deterministic.** It controls budgets, generates boundary probes, checks monotonicity within the observed bracket, and repeats adjacent endpoints.
+- **The oracle decides the outcome.** PASS, FAIL, and infrastructure errors come from measured execution—not model confidence.
+- **The evidence remains auditable.** Every action, world, observation, and cleanup result is preserved for review and reproduction.
+
+---
+
 ## Quick start
 
 ### Requirements
@@ -373,6 +381,12 @@ The evidence log distinguishes:
 ---
 
 ## Validation
+
+<!--
+Final reconciliation gate: keep the complete-path language below only after a live
+artifact confirms that the OpenAI planner received Round 1 evidence, selected the
+size action, and that action produced the subsequent Daytona execution.
+-->
 
 The current demonstration validates the complete investigation path across isolated Daytona worlds:
 
