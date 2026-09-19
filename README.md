@@ -4,6 +4,8 @@
 
 **AI가 제안한 가설을 실제 실험으로 확인하고, 검증된 실패 조건과 통과한 변경을 돌려주는 디버깅 도구.**
 
+![EnvBisect 실험 워크스페이스 — GitHub 이슈 입력과 Daytona + LLM 실행 화면](docs/images/envbisect-workspace.png)
+
 ## 어제 통과한 CI가 오늘 실패했습니다
 
 런타임을 업데이트한 뒤, 같은 코드와 테스트가 실패합니다.
@@ -103,3 +105,4 @@ EnvBisect가 제공하는 것은 이 기능들을 **증거 기반 선택·통제
 임의의 GitHub 이슈·PR·CI 링크를 자동 분석하는 연결은 준비 중입니다.
 
 설치·키 설정·실행 명령은 [실행 가이드](docs/DEVELOPMENT.md#quick-start--windows-cmd)를 참고하세요.
+
